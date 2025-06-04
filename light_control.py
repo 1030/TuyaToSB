@@ -17,7 +17,7 @@ def usage():
     print("  python light_control.py <device> temp <kelvin>")
     print("  python light_control.py <device> bright <0-100>")
     print("  python light_control.py <device> get")
-    print("  python light_control.py all_on | all_off")
+    print("  python light_control.py all_on | allon | all_off | alloff")
     sys.exit(1)
 
 
