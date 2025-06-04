@@ -274,3 +274,11 @@ def test_dimby_floors_at_0():
     light_control.adjust_brightness(bulb, -200)
 
     assert ('brightness', 0) in bulb.calls
+
+
+def test_dimby_uses_bright_value_v2(monkeypatch):
+    bulb = DummyBulb({'20': True, '21': 'white', 'bright_value_v2': '800'})
+
+    light_control.adjust_brightness(bulb, -100)
+
+    assert ('brightness', 700) in bulb.calls
