@@ -193,6 +193,23 @@ def test_load_preset_uses_hex_brightness(tmp_path, monkeypatch):
     assert ('brightness', 100) in bulb.calls
 
 
+def test_get_all_states_uses_hex_brightness(monkeypatch):
+    bulb = DummyBulb({
+        '20': True,
+        '21': 'colour',
+        'colour_data': '016203e803e8',
+        '25': '0',
+    })
+    devices = {'Bulb': {'type': 'bulb'}}
+
+    monkeypatch.setattr(light_control, 'devices', devices)
+    monkeypatch.setattr(light_control, 'get_device', lambda n: bulb)
+
+    states = light_control.get_all_states()
+    assert states['Bulb']['color'] == '016203e803e8'
+    assert states['Bulb']['value'] == 100
+
+
 def test_brightness_key_named_value(tmp_path, monkeypatch):
     bulb = DummyBulb({'20': False, '21': 'colour', '24': '#00ff00', 'value': '40'})
     plug = DummyPlug({'1': True})
