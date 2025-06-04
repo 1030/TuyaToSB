@@ -9,6 +9,10 @@ device_class = {
     'plug': tinytuya.OutletDevice
 }
 
+# When ``False``, :func:`load_preset` will ignore plug devices
+# (i.e. sockets) so that only bulbs are modified.
+UPDATE_PLUGS_ON_PRESET_LOAD = True
+
 
 def usage():
     print("Usage:")
@@ -215,11 +219,11 @@ def get_all_states():
                                          'color_data', 24))
                 if col_key is not None:
                     state['color'] = dps[col_key]
-                val_key = _find_key(dps, ('bright', 'brightness', 25))
+                val_key = _find_key(dps, ('bright', 'brightness', 'value', 25))
                 if val_key is not None:
                     state['value'] = _coerce_level(dps[val_key])
             else:  # assume white mode
-                bright_key = _find_key(dps, ('bright', 'brightness', 25))
+                bright_key = _find_key(dps, ('bright', 'brightness', 'value', 25))
                 if bright_key is not None:
                     state['brightness'] = _coerce_level(dps[bright_key])
                 temp_key = _find_key(dps, ('temp', 'colourtemp', 'color_temp',
@@ -260,6 +264,8 @@ def load_preset(name):
         if dev_name not in devices:
             continue
         cfg = devices[dev_name]
+        if cfg['type'] == 'plug' and not UPDATE_PLUGS_ON_PRESET_LOAD:
+            continue
         dev = get_device(dev_name)
         if 'on' in state:
             (dev.turn_on if state['on'] else dev.turn_off)()
