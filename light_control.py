@@ -274,52 +274,66 @@ def save_preset(name):
     print(f"[DEBUG] Saved preset to {filename}")
 
 
+def _apply_state(dev_name, state):
+    """Helper to apply ``state`` to ``dev_name``."""
+
+    print(f"[DEBUG] Applying state for {dev_name}: {state}")
+    if dev_name not in devices:
+        return
+    cfg = devices[dev_name]
+    if cfg['type'] == 'plug' and not UPDATE_PLUGS_ON_PRESET_LOAD:
+        return
+    dev = get_device(dev_name)
+    if 'on' in state:
+        try:
+            if state['on']:
+                dev.turn_on(switch=True, nowait=True)
+            else:
+                dev.turn_off(switch=True, nowait=True)
+        except TypeError:
+            (dev.turn_on if state['on'] else dev.turn_off)()
+    if cfg['type'] == 'bulb':
+        mode = state.get('mode')
+        if mode in ('colour', 'color'):
+            colour = state.get('color')
+            r, g, b, default_val = _parse_colour_str(colour)
+            if r is not None:
+                print(f"[DEBUG] Loading colour {r,g,b} on {dev_name}")
+                dev.set_colour(r, g, b)
+            if hasattr(dev, 'set_brightness'):
+                if 'value' in state:
+                    val = _coerce_level(state['value'])
+                    if val == 0 and default_val is not None:
+                        val = default_val
+                else:
+                    val = default_val
+                if val is not None:
+                    print(f"[DEBUG] Loading brightness {val} on {dev_name}")
+                    dev.set_brightness(val)
+        else:
+            if 'brightness' in state and hasattr(dev, 'set_brightness'):
+                bright = _coerce_level(state['brightness'])
+                print(f"[DEBUG] Loading brightness {bright} on {dev_name}")
+                dev.set_brightness(bright)
+            if 'temp' in state:
+                print(f"[DEBUG] Loading colour temperature {state['temp']} on {dev_name}")
+                dev.set_colourtemp(state['temp'])
+
+
 def load_preset(name):
     """Load the preset stored in *name*.json and apply it."""
 
     import json
+    from concurrent.futures import ThreadPoolExecutor
 
     filename = f"{name}.json"
     with open(filename) as fh:
         states = json.load(fh)
     print(f"[DEBUG] Loaded preset from {filename}: {states}")
 
-    for dev_name, state in states.items():
-        print(f"[DEBUG] Applying state for {dev_name}: {state}")
-        if dev_name not in devices:
-            continue
-        cfg = devices[dev_name]
-        if cfg['type'] == 'plug' and not UPDATE_PLUGS_ON_PRESET_LOAD:
-            continue
-        dev = get_device(dev_name)
-        if 'on' in state:
-            (dev.turn_on if state['on'] else dev.turn_off)()
-        if cfg['type'] == 'bulb':
-            mode = state.get('mode')
-            if mode in ('colour', 'color'):
-                colour = state.get('color')
-                r, g, b, default_val = _parse_colour_str(colour)
-                if r is not None:
-                    print(f"[DEBUG] Loading colour {r,g,b} on {dev_name}")
-                    dev.set_colour(r, g, b)
-                if hasattr(dev, 'set_brightness'):
-                    if 'value' in state:
-                        val = _coerce_level(state['value'])
-                        if val == 0 and default_val is not None:
-                            val = default_val
-                    else:
-                        val = default_val
-                    if val is not None:
-                        print(f"[DEBUG] Loading brightness {val} on {dev_name}")
-                        dev.set_brightness(val)
-            else:
-                if 'brightness' in state and hasattr(dev, 'set_brightness'):
-                    bright = _coerce_level(state['brightness'])
-                    print(f"[DEBUG] Loading brightness {bright} on {dev_name}")
-                    dev.set_brightness(bright)
-                if 'temp' in state:
-                    print(f"[DEBUG] Loading colour temperature {state['temp']} on {dev_name}")
-                    dev.set_colourtemp(state['temp'])
+    with ThreadPoolExecutor() as executor:
+        for dev_name, state in states.items():
+            executor.submit(_apply_state, dev_name, state)
 
 
 if __name__ == '__main__':
