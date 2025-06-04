@@ -132,6 +132,18 @@ def _find_key(status, keys):
     return None
 
 
+def _to_percent(val):
+    """Return *val* scaled to 0-100 or ``None`` if invalid."""
+
+    try:
+        val = int(val)
+    except (TypeError, ValueError):
+        return None
+    if val > 100:
+        val = round(val * 100 / 1000)
+    return val
+
+
 def _parse_colour(colour):
     """Return ('#rrggbb', value) from raw colour status."""
     if isinstance(colour, str):
@@ -208,29 +220,18 @@ def get_all_states():
                     if val is not None:
                         state['value'] = val
                 if 'value' not in state:
-                    val_key = _find_key(dps, ('bright', 'brightness', 25))
+                    val_key = _find_key(dps, ('bright', 'brightness', 25, 4))
                     if val_key is not None:
-                        val = dps[val_key]
-                        if isinstance(val, str):
-                            try:
-                                val = int(val)
-                            except ValueError:
-                                val = None
-                        if isinstance(val, int):
+                        val = _to_percent(dps[val_key])
+                        if val is not None:
                             state['value'] = val
             else:  # assume white mode
-                bright_key = _find_key(dps, ('bright', 'brightness', 25))
+                bright_key = _find_key(dps, ('bright', 'brightness', 25, 4))
                 if bright_key is not None:
-                    val = dps[bright_key]
-                    if isinstance(val, str):
-                        try:
-                            val = int(val)
-                        except ValueError:
-                            val = None
-                    if isinstance(val, int):
+                    val = _to_percent(dps[bright_key])
+                    if val is not None:
                         state['brightness'] = val
-                temp_key = _find_key(dps, ('temp', 'colourtemp', 'color_temp',
-                                          26))
+                temp_key = _find_key(dps, ('temp', 'colourtemp', 'color_temp', 26, 3))
                 if temp_key is not None:
                     val = dps[temp_key]
                     if isinstance(val, str):
@@ -239,7 +240,7 @@ def get_all_states():
                         except ValueError:
                             val = None
                     if isinstance(val, int):
-                        state['temp'] = val
+                        state['temp'] = int(1_000_000 / val) if val else 0
         states[name] = state
     return states
 
@@ -307,7 +308,8 @@ def load_preset(name):
                     except (TypeError, ValueError):
                         pass
                     else:
-                        dev.set_colourtemp(tval)
+                        mired = int(1_000_000 / tval) if tval else 0
+                        dev.set_colourtemp(mired)
 
 
 if __name__ == '__main__':

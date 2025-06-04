@@ -108,6 +108,33 @@ def test_get_all_states(monkeypatch):
     }
 
 
+def test_get_all_states_white_mode(monkeypatch):
+    bulb = DummyBulb({'20': True, '21': 'white', '25': 400, '26': 250})
+    plug = DummyPlug({'1': False})
+
+    devices = {
+        'Bulb': {'type': 'bulb'},
+        'Plug': {'type': 'plug'},
+    }
+
+    def get_device(name):
+        return bulb if name == 'Bulb' else plug
+
+    monkeypatch.setattr(light_control, 'devices', devices)
+    monkeypatch.setattr(light_control, 'get_device', get_device)
+
+    states = light_control.get_all_states()
+    assert states == {
+        'Bulb': {
+            'on': True,
+            'mode': 'white',
+            'brightness': 40,
+            'temp': 4000,
+        },
+        'Plug': {'on': False},
+    }
+
+
 def test_save_and_load_preset(tmp_path, monkeypatch):
     bulb = DummyBulb({'20': 'False', '21': 'colour', '24': '#00ff00', '25': '40'})
     plug = DummyPlug({'1': True})
@@ -160,4 +187,54 @@ def test_save_and_load_preset(tmp_path, monkeypatch):
     assert 'on' in bulb.calls  # bulb turned on from preset
     assert ('colour', 0, 0, 255) in bulb.calls
     assert ('brightness', 75) in bulb.calls
+
+
+def test_save_and_load_preset_white(tmp_path, monkeypatch):
+    bulb = DummyBulb({'20': True, '21': 'white', '25': '500', '26': '200'})
+    plug = DummyPlug({'1': False})
+
+    devices = {'Bulb': {'type': 'bulb'}, 'Plug': {'type': 'plug'}}
+
+    def get_device(name):
+        return bulb if name == 'Bulb' else plug
+
+    monkeypatch.setattr(light_control, 'devices', devices)
+    monkeypatch.setattr(light_control, 'get_device', get_device)
+
+    preset_name = str(tmp_path / 'preset2')
+
+    monkeypatch.setattr(
+        light_control,
+        'get_all_states',
+        lambda: {
+            'Bulb': {
+                'on': True,
+                'mode': 'white',
+                'brightness': 50,
+                'temp': 5000,
+            },
+            'Plug': {'on': True},
+        },
+    )
+
+    light_control.save_preset(preset_name)
+
+    with open(preset_name + '.json') as fh:
+        data = json.load(fh)
+
+    assert data['Bulb']['brightness'] == 50
+    assert data['Bulb']['temp'] == 5000
+
+    data['Bulb']['temp'] = str(data['Bulb']['temp'])
+    data['Bulb']['brightness'] = str(data['Bulb']['brightness'])
+    with open(preset_name + '.json', 'w') as fh:
+        json.dump(data, fh)
+
+    bulb.calls.clear()
+    plug.calls.clear()
+
+    light_control.load_preset(preset_name)
+
+    assert ('brightness', 50) in bulb.calls
+    assert ('temp', 200) in bulb.calls
 
