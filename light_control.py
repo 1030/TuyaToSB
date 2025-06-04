@@ -48,30 +48,52 @@ def get_device(name):
     return dev
 
 
-def current_rgb(device):
-    """Return the current RGB tuple for *device*.
+def current_hsv(device):
+    """Return the current colour of *device* as an HSV tuple.
 
-    This tries to parse colour information from the device status in a
-    format compatible with :func:`set_colour`. Only the first three bytes
-    of any hex string are used if the exact layout is unknown.
+    The Tuya API may return the colour as either an RGB value or an HSV
+    encoded hex string (``hhhhssssvvvv``).  This helper normalises these
+    formats and returns floating point values compatible with
+    :mod:`colorsys` (i.e. ``h`` in ``0..1`` representing 0-360\u00b0 and
+    ``s``/``v`` in ``0..1``).
     """
+
     status = device.status().get('dps', {})
     colour = None
     for key in ("colour", "color", "colour_data", "24", 24):
         if key in status:
             colour = status[key]
             break
+
     if isinstance(colour, dict):
-        r, g, b = (colour.get(k, 0) for k in ("r", "g", "b"))
-        return int(r), int(g), int(b)
-    if isinstance(colour, str) and len(colour) >= 6:
+        r, g, b = (int(colour.get(k, 0)) for k in ("r", "g", "b"))
+        return colorsys.rgb_to_hsv(r / 255, g / 255, b / 255)
+
+    if isinstance(colour, str):
         hexstr = colour.lstrip('#').replace(' ', '')
-        return (
-            int(hexstr[0:2], 16),
-            int(hexstr[2:4], 16),
-            int(hexstr[4:6], 16),
-        )
+        if len(hexstr) >= 12:
+            # "hhhhssssvvvv" (h:0-360, s:0-1000, v:0-1000)
+            try:
+                h = int(hexstr[0:4], 16) / 360.0
+                s = int(hexstr[4:8], 16) / 1000.0
+                v = int(hexstr[8:12], 16) / 1000.0
+                return h, s, v
+            except ValueError:
+                pass
+        if len(hexstr) >= 6:
+            r = int(hexstr[0:2], 16)
+            g = int(hexstr[2:4], 16)
+            b = int(hexstr[4:6], 16)
+            return colorsys.rgb_to_hsv(r / 255, g / 255, b / 255)
+
     raise ValueError("Unable to determine current colour")
+
+
+def current_rgb(device):
+    """Return the current RGB tuple for *device*."""
+    h, s, v = current_hsv(device)
+    r, g, b = colorsys.hsv_to_rgb(h, s, v)
+    return int(r * 255), int(g * 255), int(b * 255)
 
 
 def global_action(func):
@@ -116,16 +138,15 @@ if __name__ == '__main__':
         if len(sys.argv) != 6:
             usage()
         h, s, v = map(int, sys.argv[3:6])
-        r, g, b = colorsys.hsv_to_rgb(h/360, s/100, v/100)
-        device.set_colour(int(r*255), int(g*255), int(b*255))
+        r, g, b = colorsys.hsv_to_rgb(h / 360, s / 100, v / 100)
+        device.set_colour(int(r * 255), int(g * 255), int(b * 255))
         print(f"{name} HSV({h},{s},{v})")
 
     elif action in ('h', 'hue', 's', 'sat', 'v', 'val'):
         if len(sys.argv) != 4:
             usage()
         new_val = int(sys.argv[3])
-        r, g, b = current_rgb(device)
-        h, s, v = colorsys.rgb_to_hsv(r/255, g/255, b/255)
+        h, s, v = current_hsv(device)
         if action in ('h', 'hue'):
             h = new_val / 360
         elif action in ('s', 'sat'):
@@ -133,8 +154,8 @@ if __name__ == '__main__':
         else:
             v = new_val / 100
         r, g, b = colorsys.hsv_to_rgb(h, s, v)
-        device.set_colour(int(r*255), int(g*255), int(b*255))
-        print(f"{name} HSV({int(h*360)},{int(s*100)},{int(v*100)})")
+        device.set_colour(int(r * 255), int(g * 255), int(b * 255))
+        print(f"{name} HSV({int(h * 360)},{int(s * 100)},{int(v * 100)})")
 
     elif action == 'temp':
         if len(sys.argv) != 4:
