@@ -23,6 +23,8 @@ def usage():
     print("  python light_control.py <device> v <val>")
     print("  python light_control.py <device> temp <kelvin>")
     print("  python light_control.py <device> bright <0-1000>")
+    print("  python light_control.py <device> brightenby <delta>")
+    print("  python light_control.py <device> dimby <delta>")
     print("  python light_control.py <device> get")
     print("  python light_control.py save_preset <name>")
     print("  python light_control.py load_preset <name>")
@@ -126,6 +128,51 @@ def current_rgb(device):
     rgb = int(r * 255), int(g * 255), int(b * 255)
     print(f"[DEBUG] current_rgb -> {rgb}")
     return rgb
+
+
+def current_brightness(device):
+    """Return the current brightness level and mode of *device*."""
+
+    status = device.status().get('dps', {})
+    mode_key = _find_key(status, ('mode', 21))
+    mode = status.get(mode_key, 'colour')
+
+    level = None
+    if mode in ('colour', 'color'):
+        col_key = _find_key(status, (
+            'colour', 'color', 'colour_data', 'color_data', 24
+        ))
+        parsed_val = None
+        if col_key is not None:
+            _, _, _, parsed_val = _parse_colour_str(status[col_key])
+
+        val_key = _find_key(status, ('bright', 'brightness', 'value', 25))
+        if val_key is not None:
+            level = _coerce_level(status[val_key])
+            if level == 0 and parsed_val is not None:
+                level = parsed_val
+        else:
+            level = parsed_val
+    else:
+        bright_key = _find_key(status, ('bright', 'brightness', 'value', 25))
+        if bright_key is not None:
+            level = _coerce_level(status[bright_key])
+
+    if level is None:
+        raise ValueError('Unable to determine brightness')
+
+    print(f"[DEBUG] current_brightness -> level:{level}, mode:{mode}")
+    return level, mode
+
+
+def adjust_brightness(device, delta):
+    """Adjust *device* brightness by *delta* within 0..1000."""
+
+    level, mode = current_brightness(device)
+    new_level = max(0, min(1000, level + delta))
+    device.set_brightness(new_level)
+    print(f"[DEBUG] adjust_brightness {level} + {delta} -> {new_level}")
+    return new_level, mode
 
 
 def global_action(func):
@@ -416,6 +463,16 @@ if __name__ == '__main__':
         b = int(sys.argv[3])
         device.set_brightness(b)
         print(f"{name} brightness {b}%")
+
+    elif action == 'brightenby':
+        delta = int(sys.argv[3])
+        new_bright, _ = adjust_brightness(device, delta)
+        print(f"{name} brightness {new_bright}")
+
+    elif action == 'dimby':
+        delta = int(sys.argv[3])
+        new_bright, _ = adjust_brightness(device, -delta)
+        print(f"{name} brightness {new_bright}")
 
     elif action == 'get':
         status = device.status().get('dps', {})
