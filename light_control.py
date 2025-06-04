@@ -215,13 +215,23 @@ def get_all_states():
             mode = dps.get(mode_key, 'colour')
             state['mode'] = mode
             if mode in ('colour', 'color'):
-                col_key = _find_key(dps, ('colour', 'color', 'colour_data',
-                                         'color_data', 24))
+                col_key = _find_key(dps, (
+                    'colour', 'color', 'colour_data', 'color_data', 24
+                ))
+                parsed_val = None
                 if col_key is not None:
-                    state['color'] = dps[col_key]
+                    colour_val = dps[col_key]
+                    state['color'] = colour_val
+                    _, _, _, parsed_val = _parse_colour_str(colour_val)
+
                 val_key = _find_key(dps, ('bright', 'brightness', 'value', 25))
                 if val_key is not None:
-                    state['value'] = _coerce_level(dps[val_key])
+                    val = _coerce_level(dps[val_key])
+                    if val == 0 and parsed_val is not None:
+                        val = parsed_val
+                    state['value'] = val
+                elif parsed_val is not None:
+                    state['value'] = parsed_val
             else:  # assume white mode
                 bright_key = _find_key(dps, ('bright', 'brightness', 'value', 25))
                 if bright_key is not None:
