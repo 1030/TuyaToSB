@@ -52,15 +52,16 @@ def current_hsv(device):
     """Return the current colour of *device* as an HSV tuple.
 
     The Tuya API may return the colour as either an RGB value or an HSV
-    encoded hex string (``hhhhssssvvvv``).  This helper normalises these
-    formats and returns floating point values compatible with
-    :mod:`colorsys` (i.e. ``h`` in ``0..1`` representing 0-360\u00b0 and
-    ``s``/``v`` in ``0..1``).
+    encoded hex string (``hhhhssssvvvv``).  Some firmwares store this in
+    ``colour_data`` while others use ``color_data``.  This helper
+    normalises these formats and returns floating point values
+    compatible with :mod:`colorsys` (i.e. ``h`` in ``0..1`` representing
+    0-360\u00b0 and ``s``/``v`` in ``0..1``).
     """
 
     status = device.status().get('dps', {})
     colour = None
-    for key in ("colour", "color", "colour_data", "24", 24):
+    for key in ("colour", "color", "colour_data", "color_data", "24", 24):
         if key in status:
             colour = status[key]
             break
