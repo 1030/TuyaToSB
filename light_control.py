@@ -154,11 +154,17 @@ def get_all_states():
                     state['color'] = dps[col_key]
                 val_key = _find_key(dps, ('bright', 'brightness', 25))
                 if val_key is not None:
-                    state['value'] = dps[val_key]
+                    try:
+                        state['value'] = int(dps[val_key])
+                    except (TypeError, ValueError):
+                        state['value'] = dps[val_key]
             else:  # assume white mode
                 bright_key = _find_key(dps, ('bright', 'brightness', 25))
                 if bright_key is not None:
-                    state['brightness'] = dps[bright_key]
+                    try:
+                        state['brightness'] = int(dps[bright_key])
+                    except (TypeError, ValueError):
+                        state['brightness'] = dps[bright_key]
                 temp_key = _find_key(dps, ('temp', 'colourtemp', 'color_temp',
                                           26))
                 if temp_key is not None:
@@ -173,6 +179,17 @@ def save_preset(name):
     import json
 
     states = get_all_states()
+    for state in states.values():
+        if 'value' in state:
+            try:
+                state['value'] = int(state['value'])
+            except (TypeError, ValueError):
+                pass
+        if 'brightness' in state:
+            try:
+                state['brightness'] = int(state['brightness'])
+            except (TypeError, ValueError):
+                pass
     filename = f"{name}.json"
     with open(filename, 'w') as fh:
         json.dump(states, fh)
@@ -207,10 +224,18 @@ def load_preset(name):
                         b = int(hexstr[4:6], 16)
                         dev.set_colour(r, g, b)
                 if 'value' in state and hasattr(dev, 'set_brightness'):
-                    dev.set_brightness(state['value'])
+                    try:
+                        val = int(state['value'])
+                    except (TypeError, ValueError):
+                        val = state['value']
+                    dev.set_brightness(val)
             else:
                 if 'brightness' in state and hasattr(dev, 'set_brightness'):
-                    dev.set_brightness(state['brightness'])
+                    try:
+                        bright = int(state['brightness'])
+                    except (TypeError, ValueError):
+                        bright = state['brightness']
+                    dev.set_brightness(bright)
                 if 'temp' in state:
                     dev.set_colourtemp(state['temp'])
 
