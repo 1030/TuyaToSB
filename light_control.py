@@ -20,6 +20,8 @@ def usage():
     print("  python light_control.py <device> temp <kelvin>")
     print("  python light_control.py <device> bright <0-100>")
     print("  python light_control.py <device> get")
+    print("  python light_control.py save_preset <name>")
+    print("  python light_control.py load_preset <name>")
     print("  python light_control.py all_on | allon | all_off | alloff")
     sys.exit(1)
 
@@ -120,11 +122,112 @@ def global_action(func):
     sys.exit(0)
 
 
+def _find_key(status, keys):
+    """Return the first entry in *keys* present in *status*."""
+    for key in keys:
+        if key in status:
+            return key
+        if isinstance(key, int) and str(key) in status:
+            return str(key)
+    return None
+
+
+def get_all_states():
+    """Return the current state of all configured devices."""
+
+    states = {}
+    for name, cfg in devices.items():
+        dev = get_device(name)
+        dps = dev.status().get('dps', {})
+        state = {}
+        key = _find_key(dps, ('switch', '1', 20))
+        if key is not None:
+            state['on'] = dps[key]
+        if cfg['type'] == 'bulb':
+            mode_key = _find_key(dps, ('mode', 21))
+            mode = dps.get(mode_key, 'colour')
+            state['mode'] = mode
+            if mode in ('colour', 'color'):
+                col_key = _find_key(dps, ('colour', 'color', 'colour_data',
+                                         'color_data', 24))
+                if col_key is not None:
+                    state['color'] = dps[col_key]
+                val_key = _find_key(dps, ('bright', 'brightness', 25))
+                if val_key is not None:
+                    state['value'] = dps[val_key]
+            else:  # assume white mode
+                bright_key = _find_key(dps, ('bright', 'brightness', 25))
+                if bright_key is not None:
+                    state['brightness'] = dps[bright_key]
+                temp_key = _find_key(dps, ('temp', 'colourtemp', 'color_temp',
+                                          26))
+                if temp_key is not None:
+                    state['temp'] = dps[temp_key]
+        states[name] = state
+    return states
+
+
+def save_preset(name):
+    """Save the current state of all devices to *name*.json."""
+
+    import json
+
+    states = get_all_states()
+    filename = f"{name}.json"
+    with open(filename, 'w') as fh:
+        json.dump(states, fh)
+    print(f"Saved preset to {filename}")
+
+
+def load_preset(name):
+    """Load the preset stored in *name*.json and apply it."""
+
+    import json
+
+    filename = f"{name}.json"
+    with open(filename) as fh:
+        states = json.load(fh)
+
+    for dev_name, state in states.items():
+        if dev_name not in devices:
+            continue
+        cfg = devices[dev_name]
+        dev = get_device(dev_name)
+        if 'on' in state:
+            (dev.turn_on if state['on'] else dev.turn_off)()
+        if cfg['type'] == 'bulb':
+            mode = state.get('mode')
+            if mode in ('colour', 'color'):
+                colour = state.get('color')
+                if isinstance(colour, str):
+                    hexstr = colour.lstrip('#')
+                    if len(hexstr) >= 6:
+                        r = int(hexstr[0:2], 16)
+                        g = int(hexstr[2:4], 16)
+                        b = int(hexstr[4:6], 16)
+                        dev.set_colour(r, g, b)
+                if 'value' in state and hasattr(dev, 'set_brightness'):
+                    dev.set_brightness(state['value'])
+            else:
+                if 'brightness' in state and hasattr(dev, 'set_brightness'):
+                    dev.set_brightness(state['brightness'])
+                if 'temp' in state:
+                    dev.set_colourtemp(state['temp'])
+
+
 if __name__ == '__main__':
     if len(sys.argv) < 2:
         usage()
 
     cmd = sys.argv[1].lower()
+
+    if cmd == 'save_preset' and len(sys.argv) == 3:
+        save_preset(sys.argv[2])
+        sys.exit(0)
+
+    if cmd == 'load_preset' and len(sys.argv) == 3:
+        load_preset(sys.argv[2])
+        sys.exit(0)
 
     if cmd in ('all_on', 'allon', 'alloff', 'all_off'):
         action = 'turn_on' if 'on' in cmd else 'turn_off'
