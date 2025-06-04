@@ -166,4 +166,3 @@ def test_save_and_load_preset(tmp_path, monkeypatch):
     assert 'on' in bulb.calls  # bulb turned on from preset
     assert ('colour', 0, 0, 255) in bulb.calls
     assert ('brightness', 50) in bulb.calls
-

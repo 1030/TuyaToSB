@@ -58,7 +58,7 @@ def current_hsv(device):
     ``colour_data`` while others use ``color_data``.  This helper
     normalises these formats and returns floating point values
     compatible with :mod:`colorsys` (i.e. ``h`` in ``0..1`` representing
-    0-360\u00b0 and ``s``/``v`` in ``0..1``).
+    0-360° and ``s``/``v`` in ``0..1``).
     """
 
     status = device.status().get('dps', {})
