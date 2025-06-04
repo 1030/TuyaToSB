@@ -116,7 +116,7 @@ def test_hex_value_parsing(monkeypatch):
     monkeypatch.setattr(light_control, 'get_device', lambda n: bulb)
 
     states = light_control.get_all_states()
-    assert states['Bulb']['value'] == 50
+    assert states['Bulb']['value'] == 500
 
 
 def test_save_and_load_preset(tmp_path, monkeypatch):
@@ -153,7 +153,7 @@ def test_save_and_load_preset(tmp_path, monkeypatch):
         data = json.load(fh)
 
     assert data['Bulb']['color'] == '#0000ff'
-    assert data['Bulb']['value'] == 50
+    assert data['Bulb']['value'] == 500
     assert data['Plug']['on'] is False
 
     # prepare for load
@@ -165,7 +165,7 @@ def test_save_and_load_preset(tmp_path, monkeypatch):
     assert 'off' in plug.calls  # plug turned off
     assert 'on' in bulb.calls  # bulb turned on from preset
     assert ('colour', 0, 0, 255) in bulb.calls
-    assert ('brightness', 50) in bulb.calls
+    assert ('brightness', 500) in bulb.calls
 
 
 def test_load_preset_uses_hex_brightness(tmp_path, monkeypatch):
@@ -190,7 +190,7 @@ def test_load_preset_uses_hex_brightness(tmp_path, monkeypatch):
     light_control.load_preset(preset_name)
 
     assert ('colour', 255, 0, 25) in bulb.calls
-    assert ('brightness', 100) in bulb.calls
+    assert ('brightness', 1000) in bulb.calls
 
 
 def test_get_all_states_uses_hex_brightness(monkeypatch):
@@ -207,7 +207,7 @@ def test_get_all_states_uses_hex_brightness(monkeypatch):
 
     states = light_control.get_all_states()
     assert states['Bulb']['color'] == '016203e803e8'
-    assert states['Bulb']['value'] == 100
+    assert states['Bulb']['value'] == 1000
 
 
 def test_brightness_key_named_value(tmp_path, monkeypatch):

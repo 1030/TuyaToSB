@@ -22,7 +22,7 @@ def usage():
     print("  python light_control.py <device> s <sat>")
     print("  python light_control.py <device> v <val>")
     print("  python light_control.py <device> temp <kelvin>")
-    print("  python light_control.py <device> bright <0-100>")
+    print("  python light_control.py <device> bright <0-1000>")
     print("  python light_control.py <device> get")
     print("  python light_control.py save_preset <name>")
     print("  python light_control.py load_preset <name>")
@@ -66,6 +66,7 @@ def current_hsv(device):
     """
 
     status = device.status().get('dps', {})
+    print(f"[DEBUG] Device status dps: {status}")
     colour = None
     for key in ("colour", "color", "colour_data", "color_data", "24", 24):
         if key in status:
@@ -87,10 +88,13 @@ def current_hsv(device):
                     s /= 1000.0
                 if v > 1:
                     v /= 1000.0
+                print(f"[DEBUG] current_hsv HSV dict -> h:{h}, s:{s}, v:{v}")
                 return h, s, v
 
         r, g, b = (int(colour.get(k, 0)) for k in ("r", "g", "b"))
-        return colorsys.rgb_to_hsv(r / 255, g / 255, b / 255)
+        h, s, v = colorsys.rgb_to_hsv(r / 255, g / 255, b / 255)
+        print(f"[DEBUG] current_hsv RGB dict {r,g,b} -> h:{h}, s:{s}, v:{v}")
+        return h, s, v
 
     if isinstance(colour, str):
         hexstr = colour.lstrip('#').replace(' ', '')
@@ -100,6 +104,7 @@ def current_hsv(device):
                 h = int(hexstr[0:4], 16) / 360.0
                 s = int(hexstr[4:8], 16) / 1000.0
                 v = int(hexstr[8:12], 16) / 1000.0
+                print(f"[DEBUG] current_hsv HSV hex {hexstr} -> h:{h}, s:{s}, v:{v}")
                 return h, s, v
             except ValueError:
                 pass
@@ -107,7 +112,9 @@ def current_hsv(device):
             r = int(hexstr[0:2], 16)
             g = int(hexstr[2:4], 16)
             b = int(hexstr[4:6], 16)
-            return colorsys.rgb_to_hsv(r / 255, g / 255, b / 255)
+            h, s, v = colorsys.rgb_to_hsv(r / 255, g / 255, b / 255)
+            print(f"[DEBUG] current_hsv RGB hex {hexstr} -> h:{h}, s:{s}, v:{v}")
+            return h, s, v
 
     raise ValueError("Unable to determine current colour")
 
@@ -116,7 +123,9 @@ def current_rgb(device):
     """Return the current RGB tuple for *device*."""
     h, s, v = current_hsv(device)
     r, g, b = colorsys.hsv_to_rgb(h, s, v)
-    return int(r * 255), int(g * 255), int(b * 255)
+    rgb = int(r * 255), int(g * 255), int(b * 255)
+    print(f"[DEBUG] current_rgb -> {rgb}")
+    return rgb
 
 
 def global_action(func):
@@ -155,10 +164,8 @@ def _coerce_level(value):
 
     if isinstance(value, int):
         num = value
-        if num > 1000:
+        if num > 4095:
             num &= 0xFFF
-        if num > 100:
-            num //= 10
         return num
 
     return value
@@ -168,7 +175,7 @@ def _parse_colour_str(colour):
     """Return an ``(r, g, b, v)`` tuple from *colour* if possible.
 
     The return is ``(r, g, b, v)`` where ``r``, ``g`` and ``b`` are integers in
-    the range ``0..255`` and ``v`` is an optional brightness value in ``0..100``
+    the range ``0..255`` and ``v`` is an optional brightness value in ``0..1000``
     (or ``None`` if brightness is not encoded in the string).
     """
 
@@ -183,7 +190,9 @@ def _parse_colour_str(colour):
             s = int(hexstr[4:8], 16) / 1000.0
             v = int(hexstr[8:12], 16)
             r, g, b = colorsys.hsv_to_rgb(h, s, v / 1000.0)
-            return int(r * 255), int(g * 255), int(b * 255), _coerce_level(v)
+            result = int(r * 255), int(g * 255), int(b * 255), _coerce_level(v)
+            print(f"[DEBUG] _parse_colour_str HSV hex {hexstr} -> {result}")
+            return result
         except ValueError:
             pass
 
@@ -192,10 +201,13 @@ def _parse_colour_str(colour):
             r = int(hexstr[0:2], 16)
             g = int(hexstr[2:4], 16)
             b = int(hexstr[4:6], 16)
-            return r, g, b, None
+            result = (r, g, b, None)
+            print(f"[DEBUG] _parse_colour_str RGB hex {hexstr} -> {result}")
+            return result
         except ValueError:
             pass
 
+    print(f"[DEBUG] _parse_colour_str failed to parse '{colour}'")
     return None, None, None, None
 
 
@@ -250,6 +262,7 @@ def save_preset(name):
     import json
 
     states = get_all_states()
+    print(f"[DEBUG] Preset states gathered: {states}")
     for state in states.values():
         if 'value' in state:
             state['value'] = _coerce_level(state['value'])
@@ -258,7 +271,7 @@ def save_preset(name):
     filename = f"{name}.json"
     with open(filename, 'w') as fh:
         json.dump(states, fh)
-    print(f"Saved preset to {filename}")
+    print(f"[DEBUG] Saved preset to {filename}")
 
 
 def load_preset(name):
@@ -269,8 +282,10 @@ def load_preset(name):
     filename = f"{name}.json"
     with open(filename) as fh:
         states = json.load(fh)
+    print(f"[DEBUG] Loaded preset from {filename}: {states}")
 
     for dev_name, state in states.items():
+        print(f"[DEBUG] Applying state for {dev_name}: {state}")
         if dev_name not in devices:
             continue
         cfg = devices[dev_name]
@@ -285,6 +300,7 @@ def load_preset(name):
                 colour = state.get('color')
                 r, g, b, default_val = _parse_colour_str(colour)
                 if r is not None:
+                    print(f"[DEBUG] Loading colour {r,g,b} on {dev_name}")
                     dev.set_colour(r, g, b)
                 if hasattr(dev, 'set_brightness'):
                     if 'value' in state:
@@ -294,12 +310,15 @@ def load_preset(name):
                     else:
                         val = default_val
                     if val is not None:
+                        print(f"[DEBUG] Loading brightness {val} on {dev_name}")
                         dev.set_brightness(val)
             else:
                 if 'brightness' in state and hasattr(dev, 'set_brightness'):
                     bright = _coerce_level(state['brightness'])
+                    print(f"[DEBUG] Loading brightness {bright} on {dev_name}")
                     dev.set_brightness(bright)
                 if 'temp' in state:
+                    print(f"[DEBUG] Loading colour temperature {state['temp']} on {dev_name}")
                     dev.set_colourtemp(state['temp'])
 
 
