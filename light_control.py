@@ -135,23 +135,6 @@ def global_action(func):
     sys.exit(0)
 
 
-def _call_no_wait(func, *args, **kwargs):
-    """Call *func* with ``nowait=True`` if supported.
-
-    Some of tinytuya's methods (e.g. ``turn_on``) accept a ``nowait``
-    keyword indicating the call should return immediately without waiting
-    for a response.  When running unit tests the dummy devices don't
-    support this parameter so this helper attempts the call with
-    ``nowait=True`` first and falls back to a plain call if a ``TypeError``
-    is raised.
-    """
-
-    try:
-        func(*args, **dict(kwargs, nowait=True))
-    except TypeError:
-        func(*args, **kwargs)
-
-
 def _find_key(status, keys):
     """Return the first entry in *keys* present in *status*."""
     for key in keys:
@@ -310,8 +293,7 @@ def load_preset(name):
             continue
         dev = get_device(dev_name)
         if 'on' in state:
-            func = dev.turn_on if state['on'] else dev.turn_off
-            _call_no_wait(func)
+            (dev.turn_on if state['on'] else dev.turn_off)()
         if cfg['type'] == 'bulb':
             mode = state.get('mode')
             if mode in ('colour', 'color'):
@@ -319,7 +301,7 @@ def load_preset(name):
                 r, g, b, default_val = _parse_colour_str(colour)
                 if r is not None:
                     print(f"[DEBUG] Loading colour {r,g,b} on {dev_name}")
-                    _call_no_wait(dev.set_colour, r, g, b)
+                    dev.set_colour(r, g, b)
                 if hasattr(dev, 'set_brightness'):
                     if 'value' in state:
                         val = _coerce_level(state['value'])
@@ -329,15 +311,15 @@ def load_preset(name):
                         val = default_val
                     if val is not None:
                         print(f"[DEBUG] Loading brightness {val} on {dev_name}")
-                        _call_no_wait(dev.set_brightness, val)
+                        dev.set_brightness(val)
             else:
                 if 'brightness' in state and hasattr(dev, 'set_brightness'):
                     bright = _coerce_level(state['brightness'])
                     print(f"[DEBUG] Loading brightness {bright} on {dev_name}")
-                    _call_no_wait(dev.set_brightness, bright)
+                    dev.set_brightness(bright)
                 if 'temp' in state:
                     print(f"[DEBUG] Loading colour temperature {state['temp']} on {dev_name}")
-                    _call_no_wait(dev.set_colourtemp, state['temp'])
+                    dev.set_colourtemp(state['temp'])
 
 
 if __name__ == '__main__':
