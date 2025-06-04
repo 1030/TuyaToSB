@@ -82,7 +82,7 @@ def test_saturation_update_color_data():
 
 
 def test_get_all_states(monkeypatch):
-    bulb = DummyBulb({'20': True, '21': 'colour', '24': '#ff0000', '25': 80})
+    bulb = DummyBulb({'20': True, '21': 'colour', '24': '#ff0000', '25': '80'})
     plug = DummyPlug({'1': False})
 
     devices = {
@@ -109,7 +109,7 @@ def test_get_all_states(monkeypatch):
 
 
 def test_save_and_load_preset(tmp_path, monkeypatch):
-    bulb = DummyBulb({'20': False, '21': 'colour', '24': '#00ff00', '25': 40})
+    bulb = DummyBulb({'20': False, '21': 'colour', '24': '#00ff00', '25': '40'})
     plug = DummyPlug({'1': True})
 
     devices = {'Bulb': {'type': 'bulb'}, 'Plug': {'type': 'plug'}}
@@ -130,7 +130,7 @@ def test_save_and_load_preset(tmp_path, monkeypatch):
                 'on': True,
                 'mode': 'colour',
                 'color': '#0000ff',
-                'value': 75
+                'value': '75'
             },
             'Plug': {'on': False},
         },
@@ -142,6 +142,7 @@ def test_save_and_load_preset(tmp_path, monkeypatch):
         data = json.load(fh)
 
     assert data['Bulb']['color'] == '#0000ff'
+    assert data['Bulb']['value'] == 75
     assert data['Plug']['on'] is False
 
     # prepare for load
