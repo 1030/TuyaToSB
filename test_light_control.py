@@ -191,3 +191,53 @@ def test_load_preset_uses_hex_brightness(tmp_path, monkeypatch):
 
     assert ('colour', 255, 0, 25) in bulb.calls
     assert ('brightness', 100) in bulb.calls
+
+
+def test_brightness_key_named_value(tmp_path, monkeypatch):
+    bulb = DummyBulb({'20': False, '21': 'colour', '24': '#00ff00', 'value': '40'})
+    plug = DummyPlug({'1': True})
+
+    devices = {'Bulb': {'type': 'bulb'}, 'Plug': {'type': 'plug'}}
+
+    monkeypatch.setattr(light_control, 'devices', devices)
+    monkeypatch.setattr(light_control, 'get_device', lambda n: bulb if n == 'Bulb' else plug)
+
+    preset_name = str(tmp_path / 'preset')
+
+    light_control.save_preset(preset_name)
+
+    with open(preset_name + '.json') as fh:
+        data = json.load(fh)
+
+    assert data['Bulb']['value'] == 40
+
+    bulb.calls.clear()
+    plug.calls.clear()
+
+    light_control.load_preset(preset_name)
+
+    assert ('brightness', 40) in bulb.calls
+
+
+def test_load_preset_can_ignore_plugs(tmp_path, monkeypatch):
+    bulb = DummyBulb({'20': False, '21': 'colour', '24': '#0000ff', '25': '40'})
+    plug = DummyPlug({'1': True})
+
+    devices = {'Bulb': {'type': 'bulb'}, 'Plug': {'type': 'plug'}}
+
+    monkeypatch.setattr(light_control, 'devices', devices)
+    monkeypatch.setattr(light_control, 'get_device', lambda n: bulb if n == 'Bulb' else plug)
+    monkeypatch.setattr(light_control, 'UPDATE_PLUGS_ON_PRESET_LOAD', False)
+
+    preset = {
+        'Bulb': {'on': True, 'mode': 'colour', 'color': '#123456', 'value': 40},
+        'Plug': {'on': False},
+    }
+    preset_name = str(tmp_path / 'preset')
+    with open(preset_name + '.json', 'w') as fh:
+        json.dump(preset, fh)
+
+    light_control.load_preset(preset_name)
+
+    assert 'on' in bulb.calls
+    assert plug.calls == []
