@@ -66,6 +66,22 @@ def current_hsv(device):
             break
 
     if isinstance(colour, dict):
+        if all(k in colour for k in ("h", "s", "v")):
+            try:
+                h = float(colour.get("h", 0))
+                s = float(colour.get("s", 0))
+                v = float(colour.get("v", 0))
+            except (TypeError, ValueError):
+                pass
+            else:
+                if h > 1:
+                    h /= 360.0
+                if s > 1:
+                    s /= 1000.0
+                if v > 1:
+                    v /= 1000.0
+                return h, s, v
+
         r, g, b = (int(colour.get(k, 0)) for k in ("r", "g", "b"))
         return colorsys.rgb_to_hsv(r / 255, g / 255, b / 255)
 
