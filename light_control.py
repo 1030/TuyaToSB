@@ -193,7 +193,7 @@ def get_all_states():
         state = {}
         key = _find_key(dps, ('switch', '1', 20))
         if key is not None:
-            state['on'] = dps[key]
+            state['on'] = bool(dps[key]) if isinstance(dps[key], (bool, int, str)) else dps[key]
         if cfg['type'] == 'bulb':
             mode_key = _find_key(dps, ('mode', 21))
             mode = dps.get(mode_key, 'colour')
@@ -209,16 +209,37 @@ def get_all_states():
                         state['value'] = val
                 if 'value' not in state:
                     val_key = _find_key(dps, ('bright', 'brightness', 25))
-                    if val_key is not None and isinstance(dps[val_key], int):
-                        state['value'] = dps[val_key]
+                    if val_key is not None:
+                        val = dps[val_key]
+                        if isinstance(val, str):
+                            try:
+                                val = int(val)
+                            except ValueError:
+                                val = None
+                        if isinstance(val, int):
+                            state['value'] = val
             else:  # assume white mode
                 bright_key = _find_key(dps, ('bright', 'brightness', 25))
                 if bright_key is not None:
-                    state['brightness'] = dps[bright_key]
+                    val = dps[bright_key]
+                    if isinstance(val, str):
+                        try:
+                            val = int(val)
+                        except ValueError:
+                            val = None
+                    if isinstance(val, int):
+                        state['brightness'] = val
                 temp_key = _find_key(dps, ('temp', 'colourtemp', 'color_temp',
                                           26))
                 if temp_key is not None:
-                    state['temp'] = dps[temp_key]
+                    val = dps[temp_key]
+                    if isinstance(val, str):
+                        try:
+                            val = int(val)
+                        except ValueError:
+                            val = None
+                    if isinstance(val, int):
+                        state['temp'] = val
         states[name] = state
     return states
 
@@ -250,7 +271,10 @@ def load_preset(name):
         cfg = devices[dev_name]
         dev = get_device(dev_name)
         if 'on' in state:
-            (dev.turn_on if state['on'] else dev.turn_off)()
+            on_state = state['on']
+            if isinstance(on_state, str):
+                on_state = on_state.lower() not in ('0', 'false', 'off')
+            (dev.turn_on if on_state else dev.turn_off)()
         if cfg['type'] == 'bulb':
             mode = state.get('mode')
             if mode in ('colour', 'color'):
@@ -263,12 +287,27 @@ def load_preset(name):
                         b = int(hexstr[4:6], 16)
                         dev.set_colour(r, g, b)
                 if 'value' in state and hasattr(dev, 'set_brightness'):
-                    dev.set_brightness(state['value'])
+                    try:
+                        val = int(state['value'])
+                    except (TypeError, ValueError):
+                        pass
+                    else:
+                        dev.set_brightness(val)
             else:
                 if 'brightness' in state and hasattr(dev, 'set_brightness'):
-                    dev.set_brightness(state['brightness'])
+                    try:
+                        val = int(state['brightness'])
+                    except (TypeError, ValueError):
+                        pass
+                    else:
+                        dev.set_brightness(val)
                 if 'temp' in state:
-                    dev.set_colourtemp(state['temp'])
+                    try:
+                        tval = int(state['temp'])
+                    except (TypeError, ValueError):
+                        pass
+                    else:
+                        dev.set_colourtemp(tval)
 
 
 if __name__ == '__main__':

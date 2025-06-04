@@ -109,7 +109,7 @@ def test_get_all_states(monkeypatch):
 
 
 def test_save_and_load_preset(tmp_path, monkeypatch):
-    bulb = DummyBulb({'20': False, '21': 'colour', '24': '#00ff00', '25': 40})
+    bulb = DummyBulb({'20': 'False', '21': 'colour', '24': '#00ff00', '25': '40'})
     plug = DummyPlug({'1': True})
 
     devices = {'Bulb': {'type': 'bulb'}, 'Plug': {'type': 'plug'}}
@@ -143,6 +143,12 @@ def test_save_and_load_preset(tmp_path, monkeypatch):
 
     assert data['Bulb']['color'] == '#0000ff'
     assert data['Plug']['on'] is False
+
+    # simulate manual modification where numeric values are stored as strings
+    data['Bulb']['value'] = str(data['Bulb']['value'])
+    data['Plug']['on'] = str(data['Plug']['on'])
+    with open(preset_name + '.json', 'w') as fh:
+        json.dump(data, fh)
 
     # prepare for load
     bulb.calls.clear()
