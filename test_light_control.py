@@ -166,3 +166,28 @@ def test_save_and_load_preset(tmp_path, monkeypatch):
     assert 'on' in bulb.calls  # bulb turned on from preset
     assert ('colour', 0, 0, 255) in bulb.calls
     assert ('brightness', 50) in bulb.calls
+
+
+def test_load_preset_uses_hex_brightness(tmp_path, monkeypatch):
+    bulb = DummyBulb({'20': True})
+    devices = {'Bulb': {'type': 'bulb'}}
+
+    monkeypatch.setattr(light_control, 'devices', devices)
+    monkeypatch.setattr(light_control, 'get_device', lambda n: bulb)
+
+    preset = {
+        'Bulb': {
+            'on': True,
+            'mode': 'colour',
+            'color': '016203e803e8',
+            'value': 0,
+        }
+    }
+    preset_name = str(tmp_path / 'preset')
+    with open(preset_name + '.json', 'w') as fh:
+        json.dump(preset, fh)
+
+    light_control.load_preset(preset_name)
+
+    assert ('colour', 255, 0, 25) in bulb.calls
+    assert ('brightness', 100) in bulb.calls

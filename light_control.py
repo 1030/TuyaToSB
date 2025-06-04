@@ -135,9 +135,6 @@ def _find_key(status, keys):
 def _coerce_level(value):
     """Return *value* coerced to an integer brightness level if possible."""
 
-    if isinstance(value, int):
-        return value
-
     if isinstance(value, str):
         cleaned = value.strip().lower().lstrip('#')
         try:
@@ -150,7 +147,10 @@ def _coerce_level(value):
                     return value
             else:
                 return value
+        value = num
 
+    if isinstance(value, int):
+        num = value
         if num > 1000:
             num &= 0xFFF
         if num > 100:
@@ -158,6 +158,41 @@ def _coerce_level(value):
         return num
 
     return value
+
+
+def _parse_colour_str(colour):
+    """Return an ``(r, g, b, v)`` tuple from *colour* if possible.
+
+    The return is ``(r, g, b, v)`` where ``r``, ``g`` and ``b`` are integers in
+    the range ``0..255`` and ``v`` is an optional brightness value in ``0..100``
+    (or ``None`` if brightness is not encoded in the string).
+    """
+
+    if not isinstance(colour, str):
+        return None, None, None, None
+
+    hexstr = colour.lstrip('#').replace(' ', '')
+
+    if len(hexstr) >= 12:
+        try:
+            h = int(hexstr[0:4], 16) / 360.0
+            s = int(hexstr[4:8], 16) / 1000.0
+            v = int(hexstr[8:12], 16)
+            r, g, b = colorsys.hsv_to_rgb(h, s, v / 1000.0)
+            return int(r * 255), int(g * 255), int(b * 255), _coerce_level(v)
+        except ValueError:
+            pass
+
+    if len(hexstr) >= 6 and all(c in '0123456789abcdefABCDEF' for c in hexstr[:6]):
+        try:
+            r = int(hexstr[0:2], 16)
+            g = int(hexstr[2:4], 16)
+            b = int(hexstr[4:6], 16)
+            return r, g, b, None
+        except ValueError:
+            pass
+
+    return None, None, None, None
 
 
 def get_all_states():
@@ -232,16 +267,18 @@ def load_preset(name):
             mode = state.get('mode')
             if mode in ('colour', 'color'):
                 colour = state.get('color')
-                if isinstance(colour, str):
-                    hexstr = colour.lstrip('#')
-                    if len(hexstr) >= 6:
-                        r = int(hexstr[0:2], 16)
-                        g = int(hexstr[2:4], 16)
-                        b = int(hexstr[4:6], 16)
-                        dev.set_colour(r, g, b)
-                if 'value' in state and hasattr(dev, 'set_brightness'):
-                    val = _coerce_level(state['value'])
-                    dev.set_brightness(val)
+                r, g, b, default_val = _parse_colour_str(colour)
+                if r is not None:
+                    dev.set_colour(r, g, b)
+                if hasattr(dev, 'set_brightness'):
+                    if 'value' in state:
+                        val = _coerce_level(state['value'])
+                        if val == 0 and default_val is not None:
+                            val = default_val
+                    else:
+                        val = default_val
+                    if val is not None:
+                        dev.set_brightness(val)
             else:
                 if 'brightness' in state and hasattr(dev, 'set_brightness'):
                     bright = _coerce_level(state['brightness'])
