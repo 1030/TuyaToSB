@@ -22,7 +22,7 @@ def usage():
     print("  python light_control.py <device> s <sat>")
     print("  python light_control.py <device> v <val>")
     print("  python light_control.py <device> temp <kelvin>")
-    print("  python light_control.py <device> bright <0-100>")
+    print("  python light_control.py <device> bright <0-1000>")
     print("  python light_control.py <device> get")
     print("  python light_control.py save_preset <name>")
     print("  python light_control.py load_preset <name>")
@@ -164,10 +164,8 @@ def _coerce_level(value):
 
     if isinstance(value, int):
         num = value
-        if num > 1000:
+        if num > 4095:
             num &= 0xFFF
-        if num > 100:
-            num //= 10
         return num
 
     return value
@@ -177,7 +175,7 @@ def _parse_colour_str(colour):
     """Return an ``(r, g, b, v)`` tuple from *colour* if possible.
 
     The return is ``(r, g, b, v)`` where ``r``, ``g`` and ``b`` are integers in
-    the range ``0..255`` and ``v`` is an optional brightness value in ``0..100``
+    the range ``0..255`` and ``v`` is an optional brightness value in ``0..1000``
     (or ``None`` if brightness is not encoded in the string).
     """
 
