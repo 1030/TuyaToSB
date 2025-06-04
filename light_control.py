@@ -132,6 +132,34 @@ def _find_key(status, keys):
     return None
 
 
+def _coerce_level(value):
+    """Return *value* coerced to an integer brightness level if possible."""
+
+    if isinstance(value, int):
+        return value
+
+    if isinstance(value, str):
+        cleaned = value.strip().lower().lstrip('#')
+        try:
+            num = int(cleaned)
+        except ValueError:
+            if all(c in '0123456789abcdef' for c in cleaned):
+                try:
+                    num = int(cleaned, 16)
+                except ValueError:
+                    return value
+            else:
+                return value
+
+        if num > 1000:
+            num &= 0xFFF
+        if num > 100:
+            num //= 10
+        return num
+
+    return value
+
+
 def get_all_states():
     """Return the current state of all configured devices."""
 
@@ -154,11 +182,11 @@ def get_all_states():
                     state['color'] = dps[col_key]
                 val_key = _find_key(dps, ('bright', 'brightness', 25))
                 if val_key is not None:
-                    state['value'] = dps[val_key]
+                    state['value'] = _coerce_level(dps[val_key])
             else:  # assume white mode
                 bright_key = _find_key(dps, ('bright', 'brightness', 25))
                 if bright_key is not None:
-                    state['brightness'] = dps[bright_key]
+                    state['brightness'] = _coerce_level(dps[bright_key])
                 temp_key = _find_key(dps, ('temp', 'colourtemp', 'color_temp',
                                           26))
                 if temp_key is not None:
@@ -173,6 +201,11 @@ def save_preset(name):
     import json
 
     states = get_all_states()
+    for state in states.values():
+        if 'value' in state:
+            state['value'] = _coerce_level(state['value'])
+        if 'brightness' in state:
+            state['brightness'] = _coerce_level(state['brightness'])
     filename = f"{name}.json"
     with open(filename, 'w') as fh:
         json.dump(states, fh)
@@ -207,10 +240,12 @@ def load_preset(name):
                         b = int(hexstr[4:6], 16)
                         dev.set_colour(r, g, b)
                 if 'value' in state and hasattr(dev, 'set_brightness'):
-                    dev.set_brightness(state['value'])
+                    val = _coerce_level(state['value'])
+                    dev.set_brightness(val)
             else:
                 if 'brightness' in state and hasattr(dev, 'set_brightness'):
-                    dev.set_brightness(state['brightness'])
+                    bright = _coerce_level(state['brightness'])
+                    dev.set_brightness(bright)
                 if 'temp' in state:
                     dev.set_colourtemp(state['temp'])
 

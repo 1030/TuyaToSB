@@ -82,7 +82,7 @@ def test_saturation_update_color_data():
 
 
 def test_get_all_states(monkeypatch):
-    bulb = DummyBulb({'20': True, '21': 'colour', '24': '#ff0000', '25': 80})
+    bulb = DummyBulb({'20': True, '21': 'colour', '24': '#ff0000', '25': '80'})
     plug = DummyPlug({'1': False})
 
     devices = {
@@ -108,8 +108,19 @@ def test_get_all_states(monkeypatch):
     }
 
 
+def test_hex_value_parsing(monkeypatch):
+    bulb = DummyBulb({'20': True, '21': 'colour', '24': '#ff0000', '25': '01f4'})
+    devices = {'Bulb': {'type': 'bulb'}}
+
+    monkeypatch.setattr(light_control, 'devices', devices)
+    monkeypatch.setattr(light_control, 'get_device', lambda n: bulb)
+
+    states = light_control.get_all_states()
+    assert states['Bulb']['value'] == 50
+
+
 def test_save_and_load_preset(tmp_path, monkeypatch):
-    bulb = DummyBulb({'20': False, '21': 'colour', '24': '#00ff00', '25': 40})
+    bulb = DummyBulb({'20': False, '21': 'colour', '24': '#00ff00', '25': '40'})
     plug = DummyPlug({'1': True})
 
     devices = {'Bulb': {'type': 'bulb'}, 'Plug': {'type': 'plug'}}
@@ -130,7 +141,7 @@ def test_save_and_load_preset(tmp_path, monkeypatch):
                 'on': True,
                 'mode': 'colour',
                 'color': '#0000ff',
-                'value': 75
+                'value': '01f4'
             },
             'Plug': {'on': False},
         },
@@ -142,6 +153,7 @@ def test_save_and_load_preset(tmp_path, monkeypatch):
         data = json.load(fh)
 
     assert data['Bulb']['color'] == '#0000ff'
+    assert data['Bulb']['value'] == 50
     assert data['Plug']['on'] is False
 
     # prepare for load
@@ -153,5 +165,5 @@ def test_save_and_load_preset(tmp_path, monkeypatch):
     assert 'off' in plug.calls  # plug turned off
     assert 'on' in bulb.calls  # bulb turned on from preset
     assert ('colour', 0, 0, 255) in bulb.calls
-    assert ('brightness', 75) in bulb.calls
+    assert ('brightness', 50) in bulb.calls
 
