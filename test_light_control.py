@@ -260,12 +260,12 @@ def test_load_preset_can_ignore_plugs(tmp_path, monkeypatch):
     assert plug.calls == []
 
 
-def test_brightenby_caps_at_1000():
-    bulb = DummyBulb({'20': True, '21': 'colour', '25': '900'})
+def test_brightenby_caps_at_256():
+    bulb = DummyBulb({'20': True, '21': 'colour', '25': '200'})
 
-    light_control.adjust_brightness(bulb, 200)
+    light_control.adjust_brightness(bulb, 100)
 
-    assert ('brightness', 1000) in bulb.calls
+    assert ('brightness', light_control.MAX_BRIGHTNESS) in bulb.calls
 
 
 def test_dimby_floors_at_0():
@@ -279,6 +279,6 @@ def test_dimby_floors_at_0():
 def test_dimby_uses_bright_value_v2(monkeypatch):
     bulb = DummyBulb({'20': True, '21': 'white', 'bright_value_v2': '800'})
 
-    light_control.adjust_brightness(bulb, -100)
+    light_control.adjust_brightness(bulb, -600)
 
-    assert ('brightness', 700) in bulb.calls
+    assert ('brightness', 200) in bulb.calls
