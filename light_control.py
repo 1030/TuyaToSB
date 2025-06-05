@@ -13,6 +13,9 @@ device_class = {
 # (i.e. sockets) so that only bulbs are modified.
 UPDATE_PLUGS_ON_PRESET_LOAD = True
 
+# Maximum brightness level supported by bulbs
+MAX_BRIGHTNESS = 256
+
 
 def usage():
     print("Usage:")
@@ -22,7 +25,7 @@ def usage():
     print("  python light_control.py <device> s <sat>")
     print("  python light_control.py <device> v <val>")
     print("  python light_control.py <device> temp <kelvin>")
-    print("  python light_control.py <device> bright <0-1000>")
+    print("  python light_control.py <device> bright <0-256>")
     print("  python light_control.py <device> brightenby <delta>")
     print("  python light_control.py <device> dimby <delta>")
     print("  python light_control.py <device> get")
@@ -170,10 +173,10 @@ def current_brightness(device):
 
 
 def adjust_brightness(device, delta):
-    """Adjust *device* brightness by *delta* within 0..1000."""
+    """Adjust *device* brightness by *delta* within 0..256."""
 
     level, mode = current_brightness(device)
-    new_level = max(0, min(1000, level + delta))
+    new_level = max(0, min(MAX_BRIGHTNESS, level + delta))
     device.set_brightness(new_level)
     print(f"[DEBUG] adjust_brightness {level} + {delta} -> {new_level}")
     return new_level, mode
