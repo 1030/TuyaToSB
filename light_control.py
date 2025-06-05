@@ -146,7 +146,9 @@ def current_brightness(device):
         if col_key is not None:
             _, _, _, parsed_val = _parse_colour_str(status[col_key])
 
-        val_key = _find_key(status, ('bright', 'brightness', 'value', 25))
+        val_key = _find_key(status, (
+            'bright', 'brightness', 'value', 'bright_value', 'bright_value_v2', 25
+        ))
         if val_key is not None:
             level = _coerce_level(status[val_key])
             if level == 0 and parsed_val is not None:
@@ -154,7 +156,9 @@ def current_brightness(device):
         else:
             level = parsed_val
     else:
-        bright_key = _find_key(status, ('bright', 'brightness', 'value', 25))
+        bright_key = _find_key(status, (
+            'bright', 'brightness', 'value', 'bright_value', 'bright_value_v2', 25
+        ))
         if bright_key is not None:
             level = _coerce_level(status[bright_key])
 
@@ -283,7 +287,10 @@ def get_all_states():
                     state['color'] = colour_val
                     _, _, _, parsed_val = _parse_colour_str(colour_val)
 
-                val_key = _find_key(dps, ('bright', 'brightness', 'value', 25))
+                val_key = _find_key(dps, (
+                    'bright', 'brightness', 'value', 'bright_value',
+                    'bright_value_v2', 25
+                ))
                 if val_key is not None:
                     val = _coerce_level(dps[val_key])
                     if val == 0 and parsed_val is not None:
@@ -292,7 +299,10 @@ def get_all_states():
                 elif parsed_val is not None:
                     state['value'] = parsed_val
             else:  # assume white mode
-                bright_key = _find_key(dps, ('bright', 'brightness', 'value', 25))
+                bright_key = _find_key(dps, (
+                    'bright', 'brightness', 'value', 'bright_value',
+                    'bright_value_v2', 25
+                ))
                 if bright_key is not None:
                     state['brightness'] = _coerce_level(dps[bright_key])
                 temp_key = _find_key(dps, ('temp', 'colourtemp', 'color_temp',
